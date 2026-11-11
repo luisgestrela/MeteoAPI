@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>METEO / PAINEL · Monitoramento Meteorológico</title>
+<meta name="description" content="Consulta de dados meteorológicos por cidade com Open-Meteo (Geocoding + Forecast).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="w nav-in">
+    <a class="brand" href="#clima"><i class="logo"></i><span>METEO</span><span> / PAINEL</span></a>
+    <nav aria-label="Seções"><ul>
+      <li><a href="#clima">Clima</a></li>
+      <li><a href="#previsao">Previsão</a></li>
+      <li><a href="#comparacao">Comparação</a></li>
+      <li><a href="#checklist">Checklist</a></li>
+      <li><a href="#testes">Testes</a></li>
+      <li><a href="#arquitetura">Arquitetura</a></li>
+    </ul></nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" id="clima">
+    <div class="sky" id="sky" aria-hidden="true"></div>
+    <div class="orb" aria-hidden="true"></div>
+    <div class="clouds" aria-hidden="true">
+      <i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i><i class="cloud c4"></i><i class="cloud c5"></i>
+    </div>
+    <canvas id="fx" aria-hidden="true"></canvas>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="flash" aria-hidden="true"></div>
+
+    <div class="w hero-in">
+      <div class="top">
+        <div class="intro">
+          <h1>Monitoramento Meteorológico</h1>
+          <p class="lead">Descubra as condições atuais e acompanhe a previsão dos próximos cinco dias para cidades do mundo todo.</p>
+        </div>
+        <div class="search">
+          <form class="pill" id="form" autocomplete="off" novalidate>
+            <svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <label class="sr" for="city">Qual cidade você quer consultar?</label>
+            <input id="city" type="text" value="Salvador" maxlength="100" placeholder="Qual cidade você quer consultar?" aria-describedby="hint">
+            <button class="go" id="go" type="submit">Consultar</button>
+          </form>
+          <p class="hint" id="hint">Experimente Salvador, Recife ou uma cidade de outro país.</p>
+          <div id="pick" hidden>
+            <p class="found" id="found" role="status"></p>
+            <div class="chips" id="chips"></div>
+          </div>
+        </div>
+      </div>
+      <div class="now" id="now" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <div class="paper">
+    <section class="sec" id="previsao" hidden>
+      <div class="w">
+        <h2>Próximos cinco dias</h2>
+        <p class="sub" id="fc-sub"></p>
+        <div class="days" id="days"></div>
+        <figure class="chartbox">
+          <figcaption>Temperaturas por dia</figcaption>
+          <div id="chart"></div>
+          <div class="legend"><span><i class="hot"></i>Máxima</span><span><i class="cold"></i>Mínima</span></div>
+        </figure>
+      </div>
+    </section>
+
+    <section class="sec alt">
+      <div class="w split">
+        <div>
+          <h2>Consultas recentes</h2>
+          <p class="sub">As últimas cinco cidades desta sessão.</p>
+          <ul class="recent" id="recent"></ul>
+        </div>
+        <div id="comparacao">
+          <h2>Compare duas cidades</h2>
+          <p class="sub">Escolha duas cidades já consultadas para comparar as mínimas e máximas.</p>
+          <div class="cmp-sel">
+            <div><label for="cmpA">Primeira cidade</label><select id="cmpA"></select></div>
+            <div><label for="cmpB">Segunda cidade</label><select id="cmpB"></select></div>
+          </div>
+          <div id="cmp-out"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="checklist">
+      <div class="w">
+        <div class="check-head">
+          <div><h2>Checklist de desenvolvimento</h2><p class="sub">Marque as etapas à medida que forem concluídas.</p></div>
+          <b class="count" id="count">0 de 20 concluídos</b>
+        </div>
+        <div class="prog" id="prog" role="progressbar" aria-label="Progresso do checklist" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0"><i></i></div>
+        <ul class="checks" id="checks"></ul>
+      </div>
+    </section>
+
+    <section class="sec alt" id="testes">
+      <div class="w">
+        <div class="tests-top">
+          <div><h2>Testes obrigatórios</h2>
+          <p class="sub">Cada cenário dispara uma requisição HTTP real ao API Gateway (<code>/api/clima</code>) e compara o status recebido com o esperado.</p></div>
+          <button class="btn" id="runTests" type="button">Executar testes</button>
+        </div>
+        <div class="tablewrap">
+          <table class="tests">
+            <thead><tr><th>Cenário</th><th>HTTP esperado no gateway</th><th>Resultado observado</th></tr></thead>
+            <tbody id="tests"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec" id="arquitetura">
+      <div class="w">
+        <h2>Arquitetura da solução</h2>
+        <p class="sub">Fluxo implementado com Node.js: o frontend fala apenas com o gateway, que orquestra dois microsserviços independentes.</p>
+        <div class="arch">
+          <div class="box"><b>Frontend</b><small>HTML · CSS · JavaScript</small></div>
+          <div class="flow" aria-hidden="true"></div>
+          <div class="box"><b>API Gateway</b><small>porta 3000 · /api/clima?cidade=…</small></div>
+          <div class="flow" aria-hidden="true"></div>
+          <div class="stack">
+            <div class="box">Microsserviço de localização (porta 4001) → Open-Meteo Geocoding</div>
+            <div class="box">Microsserviço de meteorologia (porta 4002) → Open-Meteo Forecast</div>
+            <div class="box">Histórico das últimas 5 cidades (no gateway)</div>
+          </div>
+        </div>
+        <p class="contract"><b>Contrato do gateway:</b> validar cidade com 2 a 100 caracteres; retornar 400 para entrada inválida, 404 quando não houver localização, 502 para indisponibilidade ou timeout externo e 200 para consulta bem-sucedida. Esta página consome o gateway; só os microsserviços falam com a Open-Meteo.</p>
+
+        <div class="tablewrap">
+          <table class="tests">
+            <thead><tr><th>Endpoint</th><th>Descrição</th><th>Respostas</th></tr></thead>
+            <tbody>
+              <tr><td>GET /api/clima?cidade=…[&amp;id=…]</td><td>Localiza a cidade, busca clima atual + previsão de 5 dias e registra no histórico</td><td>200 · 400 · 404 · 502</td></tr>
+              <tr><td>GET /api/historico</td><td>Últimas 5 cidades consultadas</td><td>200</td></tr>
+              <tr><td>GET /api/saude</td><td>Estado do gateway e dos dois microsserviços</td><td>200</td></tr>
+              <tr><td>GET :4001/localizar?nome=…</td><td>Microsserviço de localização (Geocoding)</td><td>200 · 400 · 404 · 502</td></tr>
+              <tr><td>GET :4002/clima?lat=…&amp;lon=…</td><td>Microsserviço de meteorologia (Forecast)</td><td>200 · 400 · 502</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot"><div class="w">Dados: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (Geocoding e Forecast), sem chave de API.</div></footer>
+
+<script src="script.js"></script>
+</body>
+</html>
