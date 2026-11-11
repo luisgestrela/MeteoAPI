@@ -9,6 +9,6 @@
     "test": "node --test test/api.test.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   }
 }
