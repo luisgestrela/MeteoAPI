@@ -47,9 +47,9 @@ test.before(async () => {
     envia(404, {});
   });
   await abrir(mock, P.geo);
-  await abrir(require('../backend/services/localizacao'), P.loc);
-  await abrir(require('../backend/services/meteorologia'), P.met);
-  await abrir(require('../backend/gateway/gateway'), P.gw);
+  await abrir(require('../backend/services/localizacao').server, P.loc);
+  await abrir(require('../backend/services/meteorologia').server, P.met);
+  await abrir(require('../backend/gateway/gateway').server, P.gw);
 });
 test.after(() => abertos.forEach(s => s.close()));
 
@@ -101,6 +101,39 @@ test('microsserviços respondem direto', async () => {
 
 test('/api/saude e rota inexistente', async () => {
   const s = await get('/api/saude');
-  assert.deepEqual(s.corpo, { gateway: 'ok', localizacao: 'ok', meteorologia: 'ok' });
+  assert.deepEqual(s.corpo, { gateway: 'ok', localizacao: 'ok', meteorologia: 'ok', modo: 'microsserviços' });
   assert.equal((await get('/api/nada')).status, 404);
+});
+
+// ---- Modo Vercel (serverless): sem microsserviços permanentes, o gateway chama os módulos em processo único
+test('modo processo único (Vercel): mesmos contratos 200 / 400 / 404 / 502', async () => {
+  const { LOC_URL, MET_URL } = process.env;
+  delete process.env.LOC_URL; delete process.env.MET_URL;
+  try {
+    assert.equal((await get('/api/clima?cidade=Recife&registrar=0')).status, 200);
+    assert.equal((await get('/api/clima?cidade=')).status, 400);
+    assert.equal((await get('/api/clima?cidade=xqzwkjhg')).status, 404);
+    assert.equal((await get('/api/clima?cidade=Recife&registrar=0&simular=timeout')).status, 502);
+    assert.equal((await get('/api/clima?cidade=falha')).status, 502);
+    assert.equal((await get('/api/saude')).corpo.modo, 'processo único');
+  } finally { Object.assign(process.env, { LOC_URL, MET_URL }); }
+});
+
+test('funções em api/ funcionam como handlers (req, res) da Vercel', async () => {
+  const { LOC_URL, MET_URL } = process.env;
+  delete process.env.LOC_URL; delete process.env.MET_URL;
+  const rotas = { '/api/clima': 'clima', '/api/historico': 'historico', '/api/saude': 'saude', '/api/localizacao': 'localizacao', '/api/meteorologia': 'meteorologia' };
+  const srv = http.createServer((req, res) => require(`../api/${rotas[new URL(req.url, 'http://x').pathname]}.js`)(req, res));
+  await new Promise(r => srv.listen(5905, r));
+  try {
+    const g = async c => { const r = await fetch(`http://localhost:5905${c}`); return { status: r.status, corpo: await r.json() }; };
+    assert.equal((await g('/api/clima?cidade=Salvador&registrar=0')).status, 200);
+    assert.equal((await g('/api/clima?cidade=')).status, 400);
+    assert.equal((await g('/api/historico')).status, 200);
+    assert.equal((await g('/api/saude')).status, 200);
+    assert.equal((await g('/api/localizacao?nome=Recife')).status, 200);
+    assert.equal((await g('/api/localizacao?nome=xqzwkjhg')).status, 404);
+    assert.equal((await g('/api/meteorologia?lat=1&lon=2')).status, 200);
+    assert.equal((await g('/api/meteorologia?lat=x&lon=2')).status, 400);
+  } finally { srv.close(); Object.assign(process.env, { LOC_URL, MET_URL }); }
 });

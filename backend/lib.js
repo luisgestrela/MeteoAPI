@@ -23,10 +23,10 @@ function enviarJSON(res, status, corpo) {
  * do serviço externo vira HttpError 502 (indisponibilidade externa).
  * Se `repassarErro` for true, o status/mensagem do serviço interno é preservado.
  */
-async function buscarJSON(url, { timeout = TIMEOUT_MS, repassarErro = false } = {}) {
+async function buscarJSON(url, { timeout = TIMEOUT_MS, repassarErro = false, signal } = {}) {
   let resp;
   try {
-    resp = await fetch(url, { signal: AbortSignal.timeout(timeout) });
+    resp = await fetch(url, { signal: signal || AbortSignal.timeout(timeout) });
   } catch {
     throw new HttpError(502, 'Serviço externo indisponível ou tempo limite excedido.');
   }
@@ -40,9 +40,12 @@ async function buscarJSON(url, { timeout = TIMEOUT_MS, repassarErro = false } = 
   return corpo;
 }
 
-/** Cria um servidor HTTP simples a partir de um mapa { 'GET /rota': handler(url, req) }. */
-function criarServidor(nome, rotas, extra) {
-  return http.createServer(async (req, res) => {
+/**
+ * Cria um handler (req, res) a partir de um mapa { 'GET /rota': handler(url, req) }.
+ * Serve tanto para http.createServer (local) quanto como função serverless (Vercel).
+ */
+function criarHandler(nome, rotas, extra) {
+  return async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     const t0 = Date.now();
     try {
@@ -57,7 +60,8 @@ function criarServidor(nome, rotas, extra) {
     } finally {
       console.log(`[${nome}] ${req.method} ${req.url} → ${res.statusCode} (${Date.now() - t0} ms)`);
     }
-  });
+  };
 }
+const criarServidor = (nome, rotas, extra) => http.createServer(criarHandler(nome, rotas, extra));
 
-module.exports = { HttpError, enviarJSON, buscarJSON, criarServidor, TIMEOUT_MS };
+module.exports = { HttpError, enviarJSON, buscarJSON, criarHandler, criarServidor, TIMEOUT_MS };

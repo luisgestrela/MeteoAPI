@@ -1,14 +1,14 @@
 {
   "name": "atividademicro",
   "version": "1.0.0",
-  "description": "Meteo / Painel - monitoramento meteorol\u00f3gico com Open-Meteo",
+  "description": "Meteo / Painel - monitoramento meteorológico com Open-Meteo",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
+    "dev": "node dev.js",
+    "start": "node dev.js",
     "test": "node --test test/api.test.js"
   },
   "engines": {
-    "node": ">=14"
+    "node": ">=20"
   }
 }

@@ -154,8 +154,14 @@ addEventListener('scroll', navState, {passive: true}); navState();
    ========================================================= */
 let locs = [], current = null, lastTemp = 0, selectedId = null;
 const cache = new Map();
-let recent = [];   // histórico das últimas 5 cidades — mantido pelo gateway (GET /api/historico)
-const setRecent = lista => { recent = (lista || []).map(c => ({c})); };
+// Histórico das últimas 5 cidades. Fica no navegador (sessionStorage) porque em ambiente serverless
+// o gateway não garante memória entre chamadas; o gateway também registra em GET /api/historico.
+let recent = [];
+try { recent = JSON.parse(sessionStorage.getItem('meteo.recent')) || []; } catch {}
+function lembrar(c) {
+  recent = [{c}, ...recent.filter(r => r.c.id !== c.id)].slice(0, 5);
+  try { sessionStorage.setItem('meteo.recent', JSON.stringify(recent)); } catch {}
+}
 
 /* =========================================================
    4. Consulta
@@ -207,7 +213,7 @@ $('#chips').addEventListener('click', e => {
 function aplicar(d) {
   const c = d.localidade, w = d.clima;
   current = c; selectedId = c.id; cache.set(c.id, {c, w});
-  setRecent(d.historico);
+  lembrar(c);
   renderNow(c, w); renderForecast(c, w); renderRecent(); renderCompareSelects();
 }
 async function verClima(c, {keep = false} = {}) {
@@ -408,9 +414,5 @@ $('#runTests').onclick = async () => {
 };
 
 /* ---------- início ---------- */
-(async () => {
-  const h = await chamarGateway('/historico');          // restaura o histórico mantido no gateway
-  if (h.status === 200) setRecent(h.corpo.historico);
-  renderRecent(); renderCompareSelects();
-  consultar($('#city').value || 'Salvador');
-})();
+renderRecent(); renderCompareSelects();
+consultar($('#city').value || 'Salvador');
